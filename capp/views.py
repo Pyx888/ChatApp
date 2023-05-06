@@ -1,80 +1,196 @@
+# from django.shortcuts import render
+# from django.http import HttpResponse, JsonResponse
+# import os
+# from PyPDF2 import PdfReader
+# import docx
+# from docx2pdf import convert
+# import pdfplumber
+#
+# """
+#          打开文件filepath，并且以二进制的方式进行读取，并且使用f来引用这个文件
+#          使用PdfReader函数读取PDF文件内容，并且将结果赋值给pdf变量
+#          返回pdf变量中的页面数量，也就是pdf.pages的长度
+# """
+#
+#
+# def get_pdf_page_count(filepath):
+#     with open(filepath, 'rb') as f:
+#         pdf = PdfReader(f)
+#         return len(pdf.pages)
+#
+#
+# def read_pdf(filepath):
+#     with open(filepath, 'rb') as f:
+#         pdf = PdfReader(f)
+#         text = ''
+#         paragraph = ""
+#         results = []
+#
+#         for page in range(len(pdf.pages)):
+#
+#             lines = pdf.pages[page].extract_text().split("\n")
+#             for i in lines:
+#                 paragraph += i
+#                 if i.endswith("。") or i.endswith(".") or i.endswith("!") or i.endswith("?"):
+#                     results.append(paragraph)
+#                     paragraph = ""
+#
+#         return results
+#
+#
+# def split_paragraphs(text):
+#     return text.split('\n\n')
+#
+#
+# def uploadfile(request):
+#     my_file = request.FILES.get('file')
+#     ext = os.path.splitext(my_file.name)[1]  # 获取文件扩展名
+#     if ext not in ['.pdf', '.doc', '.docx']:
+#         return JsonResponse({"code": 9998, "message": "格式错误"})
+#
+#     print(my_file)
+#     filename = "./static/file/" + my_file.name
+#     if my_file:
+#         with open(filename, 'wb+') as f:
+#
+#             for chunk in my_file.chunks():
+#                 f.write(chunk)
+#         print(ext)
+#         if ext in ['.doc', '.docx']:
+#             print("+++++++")
+#             convert(filename, "./static/file/output.pdf")
+#             print("------")
+#             filename = "./static/file/output.pdf"
+#
+#         page_count = get_pdf_page_count(filename)  # 获取页码数
+#
+#         print(page_count)
+#         if page_count <= 10:
+#             paragraphs = read_pdf(filename)  # 获取文本内容
+#             print(paragraphs)
+#             return JsonResponse(
+#                 {"code": 0000, "message": "成功", "data": {"page_count": page_count, "paragraphs": paragraphs}})
+#
+#         return JsonResponse({"code": 0000, "message": "成功", "data": {"page_count": page_count}})
+#
+#
+#
+#
+#
+#
+#
+
+
+
+
+
+import os
+import fitz
+import docx
+
+
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
-
-# Create your views here.
-from django.http import JsonResponse
-
-import os, openai
+from PyPDF2 import PdfReader
+from docx2pdf import convert
+from pdf2docx import Converter, parse
 
 
-def info(request):
-    return JsonResponse({'msg': '200'})
+# 获取页数
+def get_pdf_page_count(filepath):
+    with open(filepath, 'rb') as f:
+        pdf = PdfReader(f)
+        return len(pdf.pages)
 
+# 读取文件内容
+def read_pdf(filepath):
+    doc = docx.Document(filepath)
+    paras = ""
+    result = []
+    # 遍历所有段落
+    for i in doc.paragraphs:
+        # 打印段落文本
+        i = i.text.replace("\t", " ").strip()
+        if i == "":
+            continue
 
-def list_info(request):
-    # return JsonResponse({'msg': '彭跃欣'})
+        paras += i
 
-    # 账户认证
-    openai.api_key = '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'
-
-    # 生成文本
-    # text = openai.Completion.create(
-    #     engine="davinci",
-    #     prompt="Hello, my name is",
-    #     temperature=0.5,
-    #     max_tokens=50
-    # )
-
-    # 打印文本
-    # print(text.choices[0].text)
-
-    # 生成文本
-    # text = openai.Completion.create(
-    #     # 使用这个模型
-    #     engine="text-davinci-002",
-    #     # 生成 Hello, my name is 样式的文本
-    #     prompt="Hello, my name is",
-    #     # 相似度0.5
-    #     temperature=0.5,
-    #     # 最多生成50字符的文本
-    #     max_tokens=50
-    # )
-    #
-    # return JsonResponse({'msg':text.choices[0].text})
-
-    # openai.api_key = os.getenv("OPENAI_API_KEY")
-    prompt = """
-    Decide whether a Mike's sentiment is positive, neutral, or negative.
-    Mike: I don't like homework!
-    Sentiment:
-    
-    使用了文本生成模型"text-davinci-003"。它将一个文本"prompt"作为输入，
-    生成一个最大长度为100个标记的文本响应。"temperature"参数控制生成文本的多样性，0表示完全确定性，值越高表示生成的文本越随机。
-    """
-    response = openai.Completion.create(model="text-davinci-003", prompt=prompt, max_tokens=100, temperature=0)
-    return JsonResponse({'MSG':response})
+        if i.endswith("。") or i.endswith(".") or i.endswith("!") or i.endswith("?"):
+            result.append(paras)
+            paras = ""
+    return result
 
 
 
-"""
-    代码生成一个序列，内容包含上海的温度
-"""
-def chat_info(request):
-    #  设置API密钥(配完环境变量的方法用这种)
-    openai.api_key = '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'
-    # 创建openai API请求，调用openai.Completion.create方法（该方法是生成文本的）
-    response = openai.Completion.create(
-        model="text-davinci-003", #使用的模型
-        prompt="\"\"\"\n推荐几部好看的书籍\n\"\"\"",#生成样式
-        temperature=0,#temperature"参数控制生成文本的多样性，0表示完全确定性，值越高表示生成的文本越随机。
-        max_tokens=256,#最大长度的文本响应
-        top_p=1,#控制生成文本的多样性
-        frequency_penalty=0,#  控制生成文本中出现频率较高的单词的程度
-        presence_penalty=0 #  控制生成文本中出现频率较低的单词的程度
-    )
+#定义删除pdf链接的函数
+def deletelink(filepath,save_file_path):
+    pdf_document = fitz.open(filepath)
 
-    print(response)
-    return JsonResponse({'msg':response})
+    # 遍历每一页
+    for page in range(pdf_document.page_count):
+        # 获取页面对象
+        page_obj = pdf_document[page]
+
+        # 遍历页面中的所有链接
+        for link in page_obj.get_links():
+            # 删除链接
+            page_obj.delete_link(link)
+
+    # 保存更改后的 PDF 文件
+    return pdf_document.save(save_file_path)
 
 
 
+# 定义以段落为单位分割文本的函数
+def split_paragraphs(text):
+    return text.split('\n\n')
+
+
+# 文件上传
+def uploadfile(request):
+    # 获取上传对象
+    my_file=request.FILES.get('file')
+    ext = os.path.splitext(my_file.name)[1]  # 获取文件扩展名
+    # 判断格式
+    if ext not in ['.pdf','.doc','.docx']:
+        return JsonResponse({"code":'9998',"message":"格式错误"})
+
+    print(my_file)
+    filename="./static/file/"+ my_file.name
+    if my_file:
+        with open(filename, 'wb+') as f:
+
+
+            for chunk in my_file.chunks():
+                f.write(chunk)
+        #  如果是.doc或.docx文件，先将其转换为.pdf文件
+        if ext in ['.doc','.docx']:
+            convert(filename, "./static/file/output.pdf")
+            pdffilename="./static/file/output.pdf"
+            wordfilename=filename
+        else:
+            wordfilename="./static/file/output.docx"
+            pdffilename="./static/file/output.pdf"
+
+            #  删除PDF中的链接
+            deletelink(filename,pdffilename)
+
+            #  将PDF文件转换为.docx文件
+            cv = Converter(pdffilename)
+            cv.convert(wordfilename)  # 默认参数start=0, end=None
+            cv.close()
+
+
+        page_count = get_pdf_page_count(pdffilename)  # 获取页码数
+
+        print(page_count)
+        if page_count<=10:
+
+            paragraphs = read_pdf(wordfilename)  # 获取文本内容
+            print(paragraphs)
+            # print(paragraphs)
+            return JsonResponse({"code": '0000', "message": "成功", "data": {"page_count": page_count,"paragraphs":paragraphs}})
+
+        return JsonResponse({"code":'0000',"message":"成功","data":{"page_count":page_count}})
 

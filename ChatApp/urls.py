@@ -19,7 +19,5 @@ from django.urls import path
 from capp import views
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('in/', views.info),
-    path('pyx/', views.list_info),
-    path('chat/', views.chat_info),
+    path("upload/", views.uploadfile),
 ]
